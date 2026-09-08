@@ -264,3 +264,59 @@ struct file_operations scull_fops = {
 ```
 
 **The file structure**   
+Bản chất của struct file: 
+- Đại diện cho một File đang mở (Open File): Mỗi khi một tiến trình trong User-space gọi lệnh open() để mở một file (hoặc file thiết bị trong /dev), Kernel sẽ tạo ra một instance của struct file trong Kernel-space.
+- Vòng đời: Cấu trúc này tồn tại từ lúc file được mở cho đến khi tất cả các bản sao của nó bị đóng hoàn toàn (close()). Khi không còn tiến trình nào dùng tới, Kernel sẽ giải phóng cấu trúc này.
+- Phân biệt struct file (Kernel) và FILE (User-space): FILE (viết hoa): Là con trỏ do thư viện C tiêu chuẩn (stdio.h) quản lý ở User-space, hoàn toàn không xuất hiện trong Kernel code, struct file: Là cấu trúc nội bộ của Kernel, không bao giờ xuất hiện trực tiếp ở User-space.
+- Quy ước đặt tên con trỏ: Trong Kernel source code, con trỏ trỏ tới struct file thường được gọi là filp (File Pointer) để tránh nhầm lẫn với chính bản thân cấu trúc file.
+
+**Chi tiết các trường quan trọng trong struct file**  
+<figure align="center">
+    <img src="../asset/Chapter_3/file_1.png" alt="fd" width="600" height="500">
+</figure>
+<figure align="center">
+    <img src="../asset/Chapter_3/file_2.png" alt="fd" width="600" height="500">
+</figure>
+<figure align="center">
+    <img src="../asset/Chapter_3/file_3.png" alt="fd" width="600" height="500">
+</figure>
+
+Chỉ đọc và ghi đúng mục đích: Bạn không tạo ra struct file, Kernel tạo nó cho bạn. Bạn chỉ nhận con trỏ filp qua các tham số hàm (open, read, write, release...).
+
+Khai thác private_data: Đây là nơi lý tưởng nhất để lưu trữ trạng thái của thiết bị giữa các lần gọi system call khác nhau (ví dụ: gán con trỏ thiết bị scull_dev vào filp->private_data ở hàm open, sau đó hàm read/write chỉ cần lấy lại ra để sử dụng).
+
+**Struct inode**   
+struct inode là gì và Sự khác biệt cốt lõi với struct file: 
+- struct inode (Index Node): Đại diện cho một tập tin thực tế trên hệ thống (file vật lý trên đĩa hoặc file thiết bị trong /dev). Mỗi file trên hệ thống chỉ có duy nhất một struct inode, bất kể có bao nhiêu chương trình đang mở nó.
+- struct file: Đại diện cho một phiên mở file (Open File Descriptor).
+
+Ví dụ thực tế: Nếu 10 tiến trình cùng gọi lệnh open("/dev/scull0", ...) đồng thời:
+- Kernel sẽ tạo ra 10 struct file riêng biệt (mỗi tiến trình giữ một phiên làm việc với cờ f_flags, vị trí f_pos riêng).
+
+- Nhưng cả 10 struct file đó đều trỏ về duy nhất 1 struct inode đại diện cho file /dev/scull0.
+
+**Hai trường (Fields) quan trọng nhất đối với Kỹ sư lập trình Driver**
+<figure align="center">
+    <img src="../asset/Chapter_3/inode.png" alt="fd" width="600" height="500">
+</figure>
+
+Để viết code có khả năng tương thích cao (portable) và không bị ảnh hưởng bởi các thay đổi trong tương lai của Kernel, lập trình viên không nên đọc trực tiếp inode->i_rdev, mà phải sử dụng 2 macro được Kernel cung cấp sẵn:
+```
+unsigned int imajor(struct inode *inode); // Trích xuất Major Number từ inode
+unsigned int iminor(struct inode *inode); // Trích xuất Minor Number từ inode
+```
+
+Ứng dụng thực tế trong hàm open của Driver:
+
+Khi ứng dụng mở file thiết bị, hàm open trong driver nhận vào tham số (struct inode *inode, struct file *filp). Bạn có thể dùng iminor(inode) để biết chính xác người dùng đang mở thiết bị phụ (Minor) nào:
+```
+static int scull_open(struct inode *inode, struct file *filp)
+{
+    unsigned int minor = iminor(inode);
+    
+    // Kiểm tra xem người dùng đang mở /dev/scull0, /dev/scull1 hay /dev/scull2...
+    pr_info("Opening scull device with Minor number: %d\n", minor);
+
+    return 0;
+}
+```
