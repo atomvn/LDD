@@ -1,2 +1,0 @@
-# LDD
-Linux device drivers
