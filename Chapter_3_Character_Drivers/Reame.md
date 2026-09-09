@@ -320,3 +320,145 @@ static int scull_open(struct inode *inode, struct file *filp)
     return 0;
 }
 ```
+
+**Char device registration**  
+Kernel sử dụng cấu trúc struct cdev (định nghĩa trong <linux/cdev.h>) để quản lý các thiết bị ký tự ở bộ nhớ nội bộ. Trước khi Kernel có thể gọi bất kỳ hàm thao tác nào (read, write, open...) của driver, bạn phải khởi tạo và đăng ký cấu trúc cdev này.
+
+**Hai cách Cấp phát và Khởi tạo struct cdev**  
+- Cách 1: Dùng khi bạn chỉ muốn cấp phát động một con trỏ cdev riêng lẻ:
+```
+struct cdev *my_cdev = cdev_alloc();
+my_cdev->ops = &my_fops;
+my_cdev->owner = THIS_MODULE;
+```
+
+- Cách 2: Nhúng cdev vào cấu trúc dữ liệu riêng của Driver (Embedded cdev) — Khuyên dùng
+```
+void cdev_init(struct cdev *cdev, struct file_operations *fops);
+```
+Ví dụ: 
+```
+struct my_device_struct {
+    int dev_data;
+    struct cdev cdev; // Nhúng cdev vào bên trong
+};
+
+struct my_device_struct my_dev;
+
+// Khởi tạo
+cdev_init(&my_dev.cdev, &my_fops);
+my_dev.cdev.owner = THIS_MODULE;
+```
+Lưu ý: Dù chọn cách nào, bạn luôn phải gán trường owner của cdev bằng THIS_MODULE.
+
+**Kích hoạt thiết bị với Kernel: cdev_add**  
+Sau khi đã cài đặt xong cdev, bước quyết định là gọi hàm cdev_add để báo cho Kernel biết thiết bị đã sẵn sàng hoạt động.
+```
+int cdev_add(struct cdev *dev, dev_t num, unsigned int count);
+```
+Tham số:
+```
+dev: Con trỏ trỏ tới cấu trúc cdev đã khởi tạo.
+
+num: Số hiệu thiết bị đầu tiên (dev_t) mà thiết bị này phản hồi.
+
+count: Số lượng Minor number liên quan gắn với cdev này (thường là 1).
+```
+Kiểm tra lỗi: cdev_add có thể thất bại. Nếu trả về lỗi âm, thiết bị chưa được thêm vào hệ thống.  
+
+Thiết bị "SỐNG" ngay lập tức (Live Device): Ngay khi cdev_add trả về thành công, Kernel có thể lập tức gọi các hàm open, read, write của driver nếu có yêu cầu từ User-space. Do đó, chỉ gọi cdev_add khi driver và phần cứng đã được chuẩn bị hoàn toàn xong xuôi.
+
+**Hủy đăng ký thiết bị: cdev_del**  
+Khi gỡ bỏ driver (trong hàm cleanup/exit), bạn cần gỡ thiết bị khỏi Kernel bằng hàm:
+```
+void cdev_del(struct cdev *dev);
+```
+
+**Đoạn code tổng hợp luồng đăng ký chuẩn**  
+```
+#include <linux/cdev.h>
+
+struct cdev my_cdev;
+dev_t dev_num; // Đã được xin cấp phát từ trước bằng alloc_chrdev_region
+
+int init_my_character_device(void)
+{
+    int result;
+
+    // 1. Khởi tạo cdev và gắn với file_operations (my_fops)
+    cdev_init(&my_cdev, &my_fops);
+    my_cdev.owner = THIS_MODULE;
+
+    // 2. Đăng ký cdev với Kernel (Kích hoạt thiết bị)
+    result = cdev_add(&my_cdev, dev_num, 1);
+    if (result < 0) {
+        pr_notice("Error %d adding my_cdev", result);
+        return result;
+    }
+
+    return 0;
+}
+
+void cleanup_my_character_device(void)
+{
+    // 3. Gỡ bỏ cdev khi thoát module
+    cdev_del(&my_cdev);
+}
+```
+
+**Device registration in scull**  
+Driver scull định nghĩa một cấu trúc dữ liệu tùy chỉnh có tên struct scull_dev để lưu trữ toàn bộ thông tin và trạng thái nội bộ của thiết bị.  
+```
+struct scull_dev {
+    struct scull_qset *data; /* Con trỏ tới tập hợp quantum đầu tiên (vùng nhớ lưu dữ liệu) */
+    int quantum;              /* Kích thước của mỗi quantum */
+    int qset;                 /* Kích thước của mảng qset */
+    unsigned long size;       /* Tổng lượng dữ liệu đang lưu trong thiết bị */
+    unsigned int access_key;  /* Dùng cho việc kiểm soát truy cập trong sculluid/scullpriv */
+    struct semaphore sem;     /* Semaphore dùng để khóa loại trừ tương hỗ (Mutual Exclusion) */
+    struct cdev cdev;         /* Cấu trúc Char Device của Kernel nhúng bên trong */
+};
+```
+
+**Giải thích Chi tiết Hàm scull_setup_cdev**  
+```
+static void scull_setup_cdev(struct scull_dev *dev, int index)
+{
+    int err, devno = MKDEV(scull_major, scull_minor + index);
+
+    // 1. Khởi tạo cdev và gán bảng thao tác hàm scull_fops
+    cdev_init(&dev->cdev, &scull_fops);
+
+    // 2. Thiết lập thông tin chủ sở hữu module và gán lạiops
+    dev->cdev.owner = THIS_MODULE;
+    dev->cdev.ops = &scull_fops;
+
+    // 3. Đăng ký cdev với Kernel
+    err = cdev_add(&dev->cdev, devno, 1);
+
+    /* 4. Xử lý lỗi nếu đăng ký thất bại */
+    if (err)
+        printk(KERN_NOTICE "Error %d adding scull%d", err, index);
+}
+```
+
+Phân tích từng dòng lệnh:
+
+- MKDEV(scull_major, scull_minor + index): Tạo ra số hiệu thiết bị devno (dev_t) cho thiết bị thứ index.
+Ví dụ: Nếu scull_major = 240, scull_minor = 0: Với index = 0 $\rightarrow$ devno đại diện cho scull0 (Major 240, Minor 0), Với index = 1 $\rightarrow$ devno đại diện cho scull1 (Major 240, Minor 1).
+- cdev_init(&dev->cdev, &scull_fops): Vì cdev nằm nhúng trong struct scull_dev, ta bắt buộc phải gọi cdev_init để Kernel thiết lập các giá trị mặc định ban đầu cho cdev và liên kết nó với bảng thao tác scull_fops.
+- dev->cdev.owner = THIS_MODULE: Báo cho Kernel biết module hiện tại sở hữu thiết bị này, giúp Kernel tự động tăng/giảm đếm số lượt tham chiếu (reference count) để ngăn người dùng gỡ module (rmmod) khi thiết bị đang được sử dụng.
+- cdev_add(&dev->cdev, devno, 1): Chính thức báo cho Kernel biết: "Thiết bị devno này đã sẵn sàng hoạt động với các hàm nằm trong scull_fops". Tham số 1 chỉ ra rằng cdev này chỉ quản lý đúng 1 Minor number.
+- Xử lý lỗi (if (err)): Nếu cdev_add trả về số khác 0 (thất bại), thông điệp thông báo lỗi sẽ được in ra qua printk.
+
+**Luồng tổng thể khi nạp Module scull**  
+Khi driver scull được nạp vào Kernel, nó thường chạy một vòng lặp gọi hàm scull_setup_cdev cho từng thiết bị:
+```
+for (i = 0; i < scull_nr_devs; i++) {
+    scull_setup_cdev(&scull_devices[i], i);
+}
+```
+
+:heavy_exclamation_mark:
+
+
