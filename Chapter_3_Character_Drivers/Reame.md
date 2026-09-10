@@ -50,7 +50,7 @@ If, instead, you have the major and minor numbers and need to turn them into a d
 MKDEV(int major, int minor);
 ```
 
-**Allocating and Freeing Device Numbers**  
+:heavy_exclamation_mark:**Allocating and Freeing Device Numbers**  
 
 **Phương pháp 1: Cấp phát Tĩnh (Static Allocation) — register_chrdev_region**  
 
@@ -88,7 +88,7 @@ name: Tên thiết bị đăng ký trong /proc/devices.
 ```
 Trả về: 0 nếu thành công; số âm nếu thất bại.
 
-**Giải phóng Số hiệu Thiết bị — unregister_chrdev_region**
+:heavy_exclamation_mark:**Giải phóng Số hiệu Thiết bị — unregister_chrdev_region**
 
 Dù cấp phát theo phương pháp tĩnh hay động, khi gỡ bỏ driver (unmount module), bạn bắt buộc phải trả lại dải số đó cho Kernel để các driver khác có thể tái sử dụng.
 ```
@@ -149,7 +149,7 @@ module_exit(my_driver_exit);
 MODULE_LICENSE("GPL");
 ```
 
-**Dynamic Allocation of Major Numbers**  
+:heavy_exclamation_mark:**Dynamic Allocation of Major Numbers**  
 Cấp phát tĩnh (Static Number):
 - Trước đây, một số Major Number được gán cố định cho các thiết bị phổ biến (được liệt kê trong Documentation/devices.txt).
 - Ngày nay, việc chọn ngẫu nhiên một số Major rảnh rỗi chỉ hoạt động tốt trên máy cá nhân của bạn. Khi chia sẻ driver cho người khác, số ngẫu nhiên này rất dễ bị xung đột (conflict) với driver khác đã chiếm trước đó.
@@ -226,12 +226,12 @@ if (result < 0) {
 ```
 
 
-**Some Important Data Structures**  
+:heavy_exclamation_mark:**Some Important Data Structures**  
 
 Most of the fundamental driver opera-
 tions involve three important kernel data structures, called file_operations, file, and inode. A basic familiarity with these structures is required to be able to do much of anything interesting.
 
-**File operation**  
+:heavy_exclamation_mark:**File operation**  
 Ý nghĩa của struct file_operations (fops):
 - Cầu nối hệ thống: Sau khi xin cấp số hiệu thiết bị (dev_t), Kernel vẫn chưa biết khi ứng dụng gọi read(), write(), hay open() thì code nào trong driver sẽ chạy. Cấu trúc file_operations chính là tập hợp các con trỏ hàm (function pointers) đảm nhận nhiệm vụ này.
 - Tư duy Hướng đối tượng (OOP in C): Trong Linux Kernel, file đại diện cho "đối tượng" (object), còn các hàm trong file_operations đóng vai trò là "phương thức" (methods) thao tác lên đối tượng đó.
@@ -263,7 +263,7 @@ struct file_operations scull_fops = {
 }
 ```
 
-**The file structure**   
+:heavy_exclamation_mark:**The file structure**   
 Bản chất của struct file: 
 - Đại diện cho một File đang mở (Open File): Mỗi khi một tiến trình trong User-space gọi lệnh open() để mở một file (hoặc file thiết bị trong /dev), Kernel sẽ tạo ra một instance của struct file trong Kernel-space.
 - Vòng đời: Cấu trúc này tồn tại từ lúc file được mở cho đến khi tất cả các bản sao của nó bị đóng hoàn toàn (close()). Khi không còn tiến trình nào dùng tới, Kernel sẽ giải phóng cấu trúc này.
@@ -285,7 +285,7 @@ Chỉ đọc và ghi đúng mục đích: Bạn không tạo ra struct file, Ker
 
 Khai thác private_data: Đây là nơi lý tưởng nhất để lưu trữ trạng thái của thiết bị giữa các lần gọi system call khác nhau (ví dụ: gán con trỏ thiết bị scull_dev vào filp->private_data ở hàm open, sau đó hàm read/write chỉ cần lấy lại ra để sử dụng).
 
-**Struct inode**   
+:heavy_exclamation_mark:**Struct inode**   
 struct inode là gì và Sự khác biệt cốt lõi với struct file: 
 - struct inode (Index Node): Đại diện cho một tập tin thực tế trên hệ thống (file vật lý trên đĩa hoặc file thiết bị trong /dev). Mỗi file trên hệ thống chỉ có duy nhất một struct inode, bất kể có bao nhiêu chương trình đang mở nó.
 - struct file: Đại diện cho một phiên mở file (Open File Descriptor).
@@ -321,7 +321,7 @@ static int scull_open(struct inode *inode, struct file *filp)
 }
 ```
 
-**Char device registration**  
+:heavy_exclamation_mark:**Char device registration**  
 Kernel sử dụng cấu trúc struct cdev (định nghĩa trong <linux/cdev.h>) để quản lý các thiết bị ký tự ở bộ nhớ nội bộ. Trước khi Kernel có thể gọi bất kỳ hàm thao tác nào (read, write, open...) của driver, bạn phải khởi tạo và đăng ký cấu trúc cdev này.
 
 **Hai cách Cấp phát và Khởi tạo struct cdev**  
@@ -351,7 +351,7 @@ my_dev.cdev.owner = THIS_MODULE;
 ```
 Lưu ý: Dù chọn cách nào, bạn luôn phải gán trường owner của cdev bằng THIS_MODULE.
 
-**Kích hoạt thiết bị với Kernel: cdev_add**  
+:heavy_exclamation_mark:**Kích hoạt thiết bị với Kernel: cdev_add**  
 Sau khi đã cài đặt xong cdev, bước quyết định là gọi hàm cdev_add để báo cho Kernel biết thiết bị đã sẵn sàng hoạt động.
 ```
 int cdev_add(struct cdev *dev, dev_t num, unsigned int count);
@@ -406,7 +406,7 @@ void cleanup_my_character_device(void)
 }
 ```
 
-**Device registration in scull**  
+:heavy_exclamation_mark:**Device registration in scull**  
 Driver scull định nghĩa một cấu trúc dữ liệu tùy chỉnh có tên struct scull_dev để lưu trữ toàn bộ thông tin và trạng thái nội bộ của thiết bị.  
 ```
 struct scull_dev {
@@ -459,6 +459,163 @@ for (i = 0; i < scull_nr_devs; i++) {
 }
 ```
 
-:heavy_exclamation_mark:
+:heavy_exclamation_mark:**The open method**   
+Hàm open được gọi mỗi khi một chương trình ở User-space mở file thiết bị. Trong hầu hết các driver, hàm này đảm nhận 4 nhiệm vụ cốt lõi:
+- Kiểm tra lỗi phần cứng: Xem thiết bị có sẵn sàng không (ví dụ: máy in bị kẹt giấy, thiết bị chưa cắm...).
+- Khởi tạo thiết bị: Nếu thiết bị được mở lần đầu tiên.
+- Cập nhật con trỏ f_op: Thay đổi bảng thao tác hàm nếu cần (kỹ thuật method overriding).
+- Cấp phát & gán dữ liệu vào filp->private_data: Chuẩn bị sẵn cấu trúc dữ liệu thiết bị để các hàm read, write, release sau đó tái sử dụng dễ dàng.
 
+Khai báo hàm open:
+```
+int (*open)(struct inode *inode, struct file *filp);
+```
+Khi hàm open chạy, bạn có inode->i_cdev (con trỏ trỏ tới struct cdev). Nhưng cái driver thực sự cần lại là struct scull_dev (cấu trúc bao quanh chứa cdev đó).
 
+Giải pháp: Macro container_of, được định nghĩa trong <linux/kernel.h>, macro này cho phép tìm ngược lại địa chỉ của cấu trúc cha khi chỉ biết địa chỉ của một cấu trúc con nằm bên trong nó.
+```
+container_of(pointer, container_type, container_field);
+```
+Tham số:
+```
+pointer: Con trỏ tới cấu trúc con đang có (ở đây là inode->i_cdev).
+
+container_type: Kiểu dữ liệu của cấu trúc cha (ở đây là struct scull_dev).
+
+container_field: Tên của biến con nằm trong cấu trúc cha (ở đây là trường cdev).
+```
+Ứng dụng trong scull_open:
+```
+struct scull_dev *dev;
+
+// Tìm cấu trúc scull_dev chứa cdev này
+dev = container_of(inode->i_cdev, struct scull_dev, cdev);
+
+// Lưu con trỏ này vào private_data để các hàm read/write/release dùng lại sau này
+filp->private_data = dev;
+```
+Phân tích Chi tiết Code Hàm scull_open:
+```
+int scull_open(struct inode *inode, struct file *filp)
+{
+    struct scull_dev *dev; /* Thông tin thiết bị */
+
+    // 1. Dùng container_of để lấy cấu trúc quản lý thiết bị
+    dev = container_of(inode->i_cdev, struct scull_dev, cdev);
+    
+    // 2. Lưu con trỏ dev vào filp->private_data
+    filp->private_data = dev;
+
+    // 3. Nếu file được mở ở chế độ CHỈ GHI (Write-only), thu nhỏ độ dài về 0
+    if ((filp->f_flags & O_ACCMODE) == O_WRONLY) {
+        scull_trim(dev); /* Hàm giải phóng vùng nhớ cũ của scull */
+    }
+
+    return 0; /* Thành công */
+}
+```
+
+:heavy_exclamation_mark:**The release method**  
+Phương thức release (trong một số driver còn được đặt tên là device_close) đóng vai trò ngược lại hoàn toàn với open. Các nhiệm vụ chính bao gồm: 
+- Giải phóng bộ nhớ: Cấp phát động nào đã thực hiện trong open (gán vào filp->private_data) thì phải dùng kfree để giải phóng tại đây.
+- Tắt thiết bị: Thực hiện các thao tác hạ nguồn/tắt thiết bị phần cứng khi lần đóng cuối cùng diễn ra (shutdown hardware).
+
+Mã nguồn scull_release: Vì scull là thiết bị ảo lưu trên bộ nhớ RAM và không có phần cứng thực tế để tắt, code cho hàm này cực kỳ tối giản:
+```
+int scull_release(struct inode *inode, struct file *filp)
+{
+    return 0; /* Thành công */
+}
+```
+
+**Quan hệ giữa lệnh close và hàm release**  
+Một thắc mắc rất phổ biến của lập trình viên: Tại sao một file thiết bị có thể bị gọi close nhiều lần hơn số lần gọi open? Nguyên nhân từ User-space:
+- Các system call như fork() (tạo tiến trình con) hoặc dup() (sao chép file descriptor) tạo ra các bản sao của file descriptor đang mở mà không hề gọi lại hàm open.
+- Tất cả các bản sao này đều sẽ bị đóng (close) khi chương trình kết thúc hoặc tự gọi close().
+- Ngay cả các chương trình thông thường không tự gọi open() trên stdin/stdout cũng sẽ tự động đóng chúng khi thoát.
+
+Cơ chế xử lý của Linux Kernel:
+- Không tạo struct file mới: Các lệnh fork() và dup() không tạo ra một struct file mới trong Kernel. Chúng chỉ nhân bản file descriptor và tăng biến đếm tham chiếu (usage counter / reference count) trong struct file hiện có.
+- Quy tắc giải phóng: Hàm close ở User-space không bắt buộc phải kích hoạt hàm release của driver ngay lập tức. Mỗi lần close được gọi, Kernel chỉ giảm biến đếm tham chiếu của struct file đi 1.
+- Kích hoạt release: Chỉ khi biến đếm tham chiếu giảm về 0 (tức là bản sao cuối cùng của file descriptor bị đóng và struct file bị hủy), Kernel mới thực sự gọi phương thức release của driver.
+
+**Phân biệt với phương thức flush**   
+- flush: Được Kernel gọi mỗi khi ứng dụng gọi lệnh close() (dù biến đếm tham chiếu chưa về 0). Tuy nhiên, rất ít driver cài đặt flush vì không có nhiều việc cần xử lý ở mỗi lần đóng lẻ tẻ.  
+- release: Chỉ được gọi duy nhất một lần khi lượt đóng cuối cùng hoàn tất.
+
+:heavy_exclamation_mark:**scull’s Memory Usage**   
+**Các hàm quản lý bộ nhớ cơ bản trong Linux Kernel**  
+Driver scull giới thiệu hai hàm cấp phát bộ nhớ động cơ bản định nghĩa trong <linux/slab.h>:
+```
+void *kmalloc(size_t size, int flags);
+void kfree(void *ptr);
+```
+kmalloc: Cấp phát một vùng nhớ kích thước size bytes.
+- Tham số flags điều khiển cách thức cấp phát (ở giai đoạn này luôn dùng cờ GFP_KERNEL).
+- Trả về con trỏ tới vùng nhớ được cấp phát, hoặc NULL nếu thất bại.
+
+kfree: Giải phóng vùng nhớ đã cấp phát bởi kmalloc.
+- Quy tắc bắt buộc: Không bao giờ truyền cho kfree một con trỏ không được tạo bởi kmalloc. Tuy nhiên, truyền con trỏ NULL vào kfree là hợp lệ.
+
+**Cấu trúc tổ chức bộ nhớ của scull**  
+Để không giới hạn kích thước dung lượng "thiết bị", scull tổ chức bộ nhớ theo dạng danh sách liên kết (Linked List) kết hợp với mảng con trỏ 2 chiều:
+<figure align="center">
+    <img src="../asset/Chapter_3/scull_layout.png" alt="fd" width="600" height="500">
+</figure>
+
+Các khái niệm cơ bản:
+- Quantum (Hạt bộ nhớ): Vùng nhớ thực tế dùng để chứa dữ liệu (mặc định 4000 bytes).
+- Quantum Set (Qset): Mảng chứa các con trỏ trỏ tới từng Quantum (mặc định mảng gồm 1000 con trỏ).
+- Danh sách liên kết struct scull_qset: Mỗi nút trong danh sách liên kết quản lý 1 Quantum Set (tương đương 1000 x 4000 = 4MB dữ liệu).
+
+Cấu trúc struct scull_qset:
+```
+struct scull_qset {
+    void **data;              // Mảng các con trỏ (mỗi con trỏ trỏ tới 1 quantum)
+    struct scull_qset *next;  // Con trỏ tới nút tiếp theo trong danh sách liên kết
+};
+```
+Ưu & Nhược điểm của thiết kế này:
+- Chi phí ban đầu (Overhead khi ghi ít dữ liệu): Nếu bạn chỉ ghi 1 byte đầu tiên vào scull, hệ thống vẫn phải cấp phát 1 nút scull_qset, 1 mảng 1000 con trỏ ($4000 \text{ bytes}$ hoặc $8000 \text{ bytes}$ tùy kiến trúc 32/64-bit) và 1 Quantum ($4000 \text{ bytes}$). Tổng cộng tốn khoảng $8\,\text{KB}$ – $12\,\text{KB}$ bộ nhớ cho 1 byte dữ liệu.
+- Tối ưu khi ghi dung lượng lớn: Khi ghi hàng Megabyte dữ liệu, chi phí quản lý danh sách liên kết trở nên rất nhỏ (chỉ 1 nút cho mỗi $4\,\text{MB}$). Kích thước tối đa của scull chỉ bị giới hạn bởi dung lượng RAM còn trống của hệ thống.
+- Mục đích kiểm thử (Testing): Bạn có thể dùng lệnh cp /dev/zero /dev/scull0 để rút sạch RAM hệ thống nhằm thử nghiệm các kịch bản cạn kiệt bộ nhớ (Low-memory conditions).
+
+Người dùng có thể thay đổi kích thước quantum và qset theo 3 cách:
+1. Sửa macro SCULL_QUANTUM / SCULL_QSET trong file scull.h lúc biên dịch.
+2. Truyền tham số module scull_quantum / scull_qset khi gọi insmod.
+3. Thay đổi trực tiếp ở runtime thông qua lệnh ioctl.
+
+**Giải phóng bộ nhớ trong scull: Hàm scull_trim**   
+Hàm scull_trim có nhiệm vụ duyệt qua toàn bộ danh sách liên kết và giải phóng sạch tất cả các Quantum, Quantum Set cũng như các nút scull_qset.
+```
+int scull_trim(struct scull_dev *dev)
+{
+    struct scull_qset *next, *dptr;
+    int qset = dev->qset;   /* Số lượng quantum trong 1 qset */
+    int i;
+
+    // Duyệt qua từng nút trong danh sách liên kết
+    for (dptr = dev->data; dptr; dptr = next) { 
+        if (dptr->data) {
+            // 1. Giải phóng từng Quantum (vùng nhớ chứa dữ liệu thực sự)
+            for (i = 0; i < qset; i++)
+                kfree(dptr->data[i]);
+            
+            // 2. Giải phóng mảng con trỏ Quantum Set
+            kfree(dptr->data);
+            dptr->data = NULL;
+        }
+        next = dptr->next;
+        
+        // 3. Giải phóng chính cấu trúc nút scull_qset
+        kfree(dptr);
+    }
+    
+    // Đặt lại các thông số thiết bị về trạng thái ban đầu
+    dev->size = 0;
+    dev->quantum = scull_quantum;
+    dev->qset = scull_qset;
+    dev->data = NULL;
+    return 0;
+}
+```
