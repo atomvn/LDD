@@ -650,9 +650,10 @@ copy_to_user: Dùng trong hàm read — Copy dữ liệu từ Kernel buffer (fro
 
 copy_from_user: Dùng trong hàm write — Copy dữ liệu từ User buffer (from) sang Kernel buffer (to).
 
-**Cập nhật vị trí File (*offp) và Quy tắc Giá trị Trả về**  
+
+**Cập nhật vị trí File (offp) và Quy tắc Giá trị Trả về**  
 Sau khi truyền tải dữ liệu thành công, driver có nhiệm vụ cập nhật con trỏ vị trí file *offp:
 
-$$\text{*offp} \leftarrow \text{*offp} + \text{bytes\_transferred}$$
+$$\text{*offp} \leftarrow \text{*offp} + \text{bytes-transferred}$$
 
 Lưu ý về pread / pwrite: Với các system call này, Kernel tự quản lý offset truyền vào và sẽ tự hủy các thay đổi mà driver thực hiện trên *offp để không làm ảnh hưởng đến vị trí đọc/ghi chung của file descriptor.
