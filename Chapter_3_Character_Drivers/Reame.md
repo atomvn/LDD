@@ -619,3 +619,40 @@ int scull_trim(struct scull_dev *dev)
     return 0;
 }
 ```
+
+:exclamation:**read and write**   
+Khai báo của read và write:
+```
+ssize_t read(struct file *filp, char __user *buff, size_t count, loff_t *offp);
+ssize_t write(struct file *filp, const char __user *buff, size_t count, loff_t *offp);
+```
+
+Giải thích các tham số:
+- filp: Con trỏ struct file đại diện cho phiên làm việc với file thiết bị.
+- buff: Con trỏ trỏ tới vùng đệm ở User-space (nơi chứa dữ liệu cần ghi, hoặc nơi nhận dữ liệu đọc về). Chú ý từ khóa gán nhãn __user.
+- count: Kích thước (số lượng bytes) dữ liệu mà User-space yêu cầu truyền tải
+- offp: Con trỏ trỏ tới biến chỉ vị trí truy cập hiện tại trong file (loff_t).
+- Giá trị trả về (ssize_t): Số byte thực tế đã đọc/ghi thành công (nguyên không âm) hoặc số âm đại diện cho mã lỗi (ví dụ: -EFAULT).
+
+Kernel không được truy cập trực tiếp vào con trỏ user space (ví dụ *buff hoặc buff[i]) vì 3 lý do:
+- Khác biệt không gian địa chỉ (Address Space Mapping): Tùy thuộc vào kiến trúc phần cứng và cấu hình Kernel, địa chỉ vùng nhớ User-space có thể hoàn toàn không hợp lệ hoặc trỏ đến một vùng nhớ ngẫu nhiên khác khi CPU đang ở Kernel mode.
+- Nguy cơ Page Fault & Kernel Oops: Bộ nhớ User-space có thể bị đẩy ra đĩa (paged out / swapped out). Nếu Kernel truy cập trực tiếp khi trang nhớ chưa nằm trong RAM, một lỗi trang (Page Fault) sẽ xảy ra. Kernel không được phép tạo Page Fault bất ngờ theo cách này, nếu không sẽ dẫn tới lỗi sập tiến trình (Oops).
+- Bảo mật và An toàn hệ thống: Con trỏ do chương trình User-space truyền vào có thể chứa lỗi (bug) hoặc cố tình chứa địa chỉ độc hại. Nếu Kernel giải mã mù quáng, chương trình User-space có thể đọc hoặc ghi đè lên bất kỳ vùng nhớ bảo mật nào của hệ thống.
+
+**Các hàm giúp truyền dữ liệu an toàn: copy_to_user và copy_from_user**  
+Để trao đổi dữ liệu an toàn, Kernel cung cấp hai hàm đặc biệt trong thư viện <asm/uaccess.h>:
+```
+unsigned long copy_to_user(void __user *to, const void *from, unsigned long count);
+unsigned long copy_from_user(void *to, const void __user *from, unsigned long count);
+```
+
+copy_to_user: Dùng trong hàm read — Copy dữ liệu từ Kernel buffer (from) sang User buffer (to).
+
+copy_from_user: Dùng trong hàm write — Copy dữ liệu từ User buffer (from) sang Kernel buffer (to).
+
+**Cập nhật vị trí File (*offp) và Quy tắc Giá trị Trả về**  
+Sau khi truyền tải dữ liệu thành công, driver có nhiệm vụ cập nhật con trỏ vị trí file *offp:
+
+$$\text{*offp} \leftarrow \text{*offp} + \text{bytes\_transferred}$$
+
+Lưu ý về pread / pwrite: Với các system call này, Kernel tự quản lý offset truyền vào và sẽ tự hủy các thay đổi mà driver thực hiện trên *offp để không làm ảnh hưởng đến vị trí đọc/ghi chung của file descriptor.
